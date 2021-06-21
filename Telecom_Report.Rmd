@@ -1,0 +1,786 @@
+---
+title:  '*Telecom Customer Churn Project*'
+author: "Ahmed G. Alastal"
+date: "_`r format(Sys.Date(), '%d %B, %Y')`_"
+output:
+  pdf_document:
+    df_print: kable
+    toc: yes
+    toc_depth: 3
+subtitle: '***HarvardX Data Science Professional Certificate: PH125.9x Capstone project(2)***'
+fontsize: 12pt
+header-includes:
+- \usepackage[font={footnotesize,it}, labelfont={bf}]{caption}
+- \usepackage{graphicx}
+- \usepackage{float}
+
+include-before: '`\newpage{}`{=latex}'
+urlcolor: blue
+---
+
+```{r setup, include=FALSE, message = FALSE, warning = FALSE}
+
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(knitr)) install.packages("knitr", repos = "http://cran.us.r-project.org")
+if(!require(kableExtra)) install.packages("kableExtra", repos = "http://cran.us.r-project.org")
+  
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+
+knitr::opts_chunk$set(echo = TRUE , warning = FALSE, message = FALSE, fig.align="center", out.width="60%")
+
+## I use this code to solve figure wrap in pdf file
+
+  opts_chunk$set(fig.path='figure/graphics-', 
+                 cache.path='cache/graphics-', 
+                 fig.align='center',
+                 external=TRUE,
+                 echo=TRUE,
+                 warning=FALSE,
+                 fig.pos='H'
+                )
+  #a4width<- 8
+  #a4height<- 10
+  
+
+```
+
+\newpage
+
+# Executive Summary
+
+The data we will use is part of Kaggle competition https://www.kaggle.com/radmirzosimov/telecom-users-dataset  Dataset includes churn data from the telecom Operator. The dataset has 22 variables and 5,987 observations.
+The main object is to predect the customers with a high probability of churn. We will analysis the dataset and focuses on the behavior of telecom customers who are more likely to leave the platform, and then we will use several techniques of Machine Learning to build a model focused on maximizing the true predictions of customers that will stay with the company. 
+We will use various technical performance measures to compare the models with each other on the basis of : accuracy, sensitifity, specificity, MCC, ROC curve, AUC ...
+
+The machine-learning models which constructed to  predicts whether customer is at risk of churn are: Logistic Regression, k-Nearest Neighbours, Decision Tree and Random Forest.
+
+
+# 1. Introduction
+
+Any business wants to maximize the number of customers. To achieve this goal, it is important not only to try to attract new ones, but also to retain existing ones. Retaining a client will cost the company less than attracting a new one. In addition, a new client may be weakly interested in business services and it will be difficult to work with him, while old clients already have the necessary data on interaction with the service.
+Accordingly, predicting the churn, we can react in time and try to keep the client who wants to leave. Based on the data about the services that the client uses, we can make him a special offer, trying to change his decision to leave the operator. This will make the task of retention easier to implement than the task of attracting new users, about which we do not know anything yet.
+
+
+## 1.1	Objective
+
+The main goal of this projects to explore through survival analysis techniques the variables and their influence on the customer churn rate in order to propose an action plan to improve customer retention using several techniques of Machine Learning
+
+```{r loading_data, echo=FALSE, message = FALSE, warning = FALSE}
+### Load saved Objects
+load("save_files/rda/data_set.rda")
+load("save_files/rda/glm_variables.rda")
+load("save_files/rda/knn_variables.rda")
+load("save_files/rda/dt_variables.rda")
+load("save_files/rda/rf_variables.rda")
+
+
+#cat(str_out[1:18], sep = "\n")
+
+```
+## 1.2 Dataset overview
+
+The used data is part of Kaggle competition https://www.kaggle.com/radmirzosimov/telecom-users-dataset, Dataset includes churn data from a Telecom Operator. The raw data contains `r format(nrow(original_telecom_data),big.mark=",",scientific=F)` rows (observation) and `r format(ncol(original_telecom_data),big.mark=",",scientific=F)` columns (features). The column “churn” is the outcome we want to predict, y. 
+
+**The structure of the Telecom data set is shown below: **
+
+```{r summary_statistics, echo=FALSE, message = FALSE, warning = FALSE}
+
+head_db <- head(original_telecom_data  %>% glimpse())
+
+```
+
+**Description of the variables**
+
+  •	Customer ID: Customer ID
+
+  •	Gender: Whether the customer is a male or a female
+
+  •	Senior Citizen: Whether the customer is a senior citizen or not (1, 0)
+
+  •	Partner: Whether the customer has a partner or not (Yes, No)
+
+  •	Dependents: Whether the customer has dependents or not (Yes, No)
+
+  •	Tenure: Number of months the customer has stayed with the company
+
+  •	Phone Service: Whether the customer has a phone service or not (Yes, No)
+
+  •	Multiple Lines: Whether the customer has multiple lines or not (Yes, No, No phone service)
+
+  •	Internet Service Customer’s: internet service provider (DSL, Fiber optic, No)
+
+  •	Online Security: Whether the customer has online security or not (Yes, No, No internet service)
+
+  •	Online Backup: Whether the customer has online backup or not (Yes, No, No internet service)
+
+  •	Device Protection: Whether the customer has device protection or not (Yes, No, No internet service)
+
+  •	Tech Support: Whether the customer has tech support or not (Yes, No, No internet service)
+
+  •	Streaming TV: Whether the customer has streaming TV or not (Yes, No, No internet service)
+
+  •	Streaming Movies: Whether the customer has streaming movies or not (Yes, No, No internet service)
+
+  •	Contract: The contract term of the customer (Month-to-month, One year, Two year)
+
+  •	Paperless Billing: Whether the customer has paperless billing or not (Yes, No)
+
+  •	Payment Method: The customer’s payment method (Electronic check, Mailed check, Bank transfer (automatic), Credit card (automatic))
+
+  •	Monthly Charges: The amount charged to the customer monthly
+
+  •	Total Charges: The total amount charged to the customer
+
+  •	Churn: Whether the customer churned or not (Yes or No)\   
+
+
+\   
+**The metadata can be divided into the following groups:**
+\   
+
+  1. Services that each customer has signed up for – phone, multiple lines, internet, online security, online backup, device protection, tech support, and streaming TV and movies.\    
+
+  2. Customer account information – how long they’ve been a customer, contract, payment method, paperless billing, monthly charges, and total charges.\    
+
+  3. Demographic info about customers – gender, age range, and if they have partners and dependents.\    
+
+  4. Censoring - customers who left within the last month – the event is stored in the column called Churn       and the time to it is on column tenure.\   
+  
+  5. Churn is the predictor variable, if the value “Yes” indicates the customer left the company. \   
+  
+\newpage
+
+# 2.	Data Analysis \   
+
+In this section, we will clean the database, in addition we will make an analysis of the variables to understand the customer's behavior.
+
+## 2.1 Data Wrangling\    
+
+Several steps were taken to prepare and clean the data for the subsequent Data Analysis and Machine Learning tasks, which are described below:
+
+  1. There are 11 missing values in the TotalCharges column, which account for only 0.16% of the total           number of observations as shown in the figure bellow. So I remove those 11 rows with missing values.
+  
+```{r missing_variables, fig.cap="Percentage of NAs in the columns in dataset", echo=FALSE, message = FALSE, warning = FALSE}  
+### Figure 1: Visualizing Percentage of NAs in the columns
+knitr::include_graphics("save_files/images/figure1.jpeg")
+
+```
+   
+  2. We will not need the the first column and customerID variables for graphs or modeling, so they can be removed.
+
+  3. The SeniorCitizen variable is coded ‘0/1’ rather than yes/no. We can recode this to ease our                interpretation of later graphs and models.
+
+  4. The MultipleLines variable is dependent on the PhoneService variable, where a ‘no’ for the latter variable automatically means a ‘no’ for the former variable. We can again further ease our graphics and modeling by recoding the ‘No phone service’ response to ‘No’ for the MultipleLines variable.
+
+  5. Similiarly, the OnlineSecurity, OnlineBackup, DeviceProtection, TechSupport, StreamingTV, and StreamingMovies variables are all dependent on the OnlineService variable. We will recode the responses from ‘No internet service’ to ‘No’ for these variables.
+
+**The following table illustrates for each feature value its standard deviation, the number of customers that churned vs the ones that didn´t churned and the churn percentage.**
+
+```{r Data_cleaning, echo=FALSE, message = FALSE, warning = FALSE}
+df_statistics  %>% 
+  kable(caption = " Calculated statistics for the churn dataset", align = 'c', booktabs = T,
+        format = "latex", linesep = "") %>%
+  kable_styling("hover",full_width = FALSE, position = "center", latex_options = c("scale_down", "hold_position"), font_size = 12)
+
+```
+
+## 2.2	Target variable
+
+CHURN column tell us about the number of Customers who left within the last month. From the figure bellow, we can see: ~ 27% of customers in this dataset have churned:
+
+```{r figure2, fig.cap="Customer churn Distribution in dataset", echo=FALSE, message = FALSE, warning = FALSE}
+##********************************************************
+####### Figure 2: Customer churn Distribution
+##********************************************************
+knitr::include_graphics("save_files/images/figure2.jpeg")
+
+```
+
+## 2.3	Continuous features
+
+There are three numerical columns: tenure, monthly charges and total charges.  let's check for distributions for them:
+
+### 2.3.1 Monthly Charges distribution
+
+We note that the number of existing customers whose monthly fees are under $25 is very high. Otherwise, the distributions are similar between those who churned and those who did not.
+
+```{r figure3, fig.cap="Distribution of Monthly Charges in telecom dataset", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+####### Figure 3: distribution of Monthly Charges
+##********************************************************
+
+  knitr::include_graphics("save_files/images/figure3.jpeg")
+
+```
+
+### 2.3.2 Total Charges distribution
+
+The Total Charges distribution is positive skew for all customers no matter whether they churned or not.
+
+```{r figure4, fig.cap="Distribution of Total Charges in telecom dataset", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+####### Figure 4: distribution of Total Charges
+##********************************************************
+
+knitr::include_graphics("save_files/images/figure4.jpeg")
+
+```
+
+### 2.3.3 Tenure distribution
+
+The distributions for tenure are very different between customers. The customers who churned are more likely to cancel the service in the first months.
+
+```{r figure5, fig.cap="Distribution of tenure in telecom dataset", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+####### Figure 5: distribution of tenure
+##********************************************************
+
+knitr::include_graphics("save_files/images/figure5.jpeg")
+
+```
+
+## 2.4	Categorical features
+
+This dataset has 16 categorical features:
+
+  •	Six binary features (Yes/No)
+
+  •	Nine features with three unique values each (categories)
+
+  •	One feature with four unique values
+
+```{r Categorical_function, echo=FALSE, message = FALSE, warning = FALSE}
+
+
+```
+
+### 2.4.1	Gender and Senior Citizen
+
+Figure below show the distribution of target variable "churn" across gender and senior citizen:
+
+```{r figure6, fig.cap="Distribution of churn percentage across gender and senior citizen", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+####### 2.4.1: Figure 6: Distribution of churn percentage across gender and senior citizen
+##********************************************************
+knitr::include_graphics("save_files/images/figure6.jpeg")
+
+```
+
+**From figure above, we can conclude:** 
+
+  •	Gender is not an indicative of churn.
+
+  •	Senior Citizens have a much higher churn rate 42% against 24% for non-senior customers.
+
+### 2.4.2	Partner and dependents
+
+Figure below show the distribution of target variable "churn" across Partner and dependents: 
+
+```{r figure7, fig.cap="Distribution of churn percentage across Partner and Dependents", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+####### 2.4.2 Figure 7: Distribution of churn percentage across Partner and Dependents
+##********************************************************
+knitr::include_graphics("save_files/images/figure7.jpeg")
+
+```
+
+**From figure above, we can conclude:**
+
+  •	Customers that doesn't have partners are more likely to churn.
+  
+  •	Customers without dependents are also more likely to churn.
+
+### 2.4.3	Phone and Internet services
+
+There are only two main services: phone and internet, figure below show the distribution of target variable "churn" across Phone and Internet services: 
+
+```{r figure8, fig.cap="Distribution of churn percentage across PhoneService and InternetService", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+####### 2.4.3 Figure 8: Distribution of churn percentage across PhoneService and InternetService
+##********************************************************
+knitr::include_graphics("save_files/images/figure8.jpeg")
+
+```
+
+**From above, we can conclude:**
+
+  •	Few customers doesn't have phone service.
+
+  •	Customers with multiple lines have a slightly higher churn rate.
+
+  •	Clients without internet have a very low churn rate.
+
+  •	Customers with fiber are more probable to churn than those with DSL connection.
+
+### 2.4.4	Other services
+
+There are six additional services for customers with internet (OnlineSecurity, OnlineBackup, DeviceProtection, TechSupport, StreamingTV, StreamingMovies).
+
+Figures below show the distribution of target variable "churn" across these services:
+
+```{r figure9, fig.cap="Distribution of churn percentage across OnlineSecurity and OnlineBackup", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+## Figure 9: Distribution of churn percentage across OnlineSecurity and OnlineBackup
+
+knitr::include_graphics("save_files/images/figure9.jpeg")
+
+```
+```{r figure10, fig.cap="Distribution of churn percentage across DeviceProtection and TechSupport", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+## Figure 10: Distribution of churn percentage across DeviceProtection and TechSupport
+
+knitr::include_graphics("save_files/images/figure10.jpeg")
+
+```
+```{r figure11, fig.cap="Distribution of churn percentage across StreamingTV and StreamingMovies", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+## Figure 11: Distribution of churn percentage across StreamingTV and StreamingMovies
+
+knitr::include_graphics("save_files/images/figure11.jpeg")
+
+```
+
+**From figures above, we can conclude:**
+
+  •	The customers who subscribe the service of DeviceProtection, OnlineBackup, OnlineSecurity and TechSupport have lower         churn rate compared to the customers who don’t.
+
+  •	Streaming service is not predictive for churn.
+
+### 2.4.5	Contract and Contract
+
+Figure below show the distribution of target variable "churn" across Contract and Contract: 
+```{r figure12, fig.cap="Distribution of churn percentage across Contract and PaymentMethod", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+####### 2.4.5 Figure 12: Distribution of churn percentage across Contract and PaymentMethod
+##********************************************************
+knitr::include_graphics("save_files/images/figure12.jpeg")
+
+```
+
+**From figure above, we can conclude:** 
+
+  •	The preferred payment method is Electronic check with around 45% of customers. This method also has a very high churn        rate.
+
+  •	Short term contracts have higher churn rates
+
+
+\newpage
+# 3. Modeling and Evaluation approach 
+
+Post preparing and visualization the data we can now move on to the step of Data Modelling, where we will implemented several models and compared them with each other on the basis of various technical performance measures: accuracy, sensitifity, specificity, MCC, ROC, AUC...
+
+The methods used for prediction of Customer Churn are:
+
+•	Logistic Regression.
+
+•	k-Nearest Neighbours (KNN).
+
+•	Decision Tree.
+
+•	Random Forest.
+
+
+## 3.1 Important definitions:
+
+**• Accuracy:** The proportion of cases that were correctly predicted in the test set.
+
+
+**• Sensitivity:** Also known as the true positive rate (TPR) or recall, is the proportion of actual positive outcomes           correctly identified as such.
+
+
+**• Specificity: ** Also known as the true negative rate (TNR), is the proportion of actual negative outcomes that are           correctly identified as such.
+
+
+**• FPR:** False positive rate, percentage of misclassified observations in the positive class. Also called false alarm rate     or fall-out.
+
+
+**• PPV:** The positive predictive value tells you how often a positive test represents a true positive.
+
+
+**• NPV:** The Negative predictive value represents the proportion of individuals with negative test results who are             correctly identified or diagnosed.
+
+
+**• The Matthews correlation coefficient MCC:** The MCC is in essence a correlation coefficient between the observed and         predicted binary classifications, it returns avalue between -1 and +1. A coefficient of +1 represents a perfect              prediction, 0 no better than random prediction and -1 indicates total disagreement between prediction and observation.
+
+
+**• ROC curve (A receiver operating characteristic curve):** is a graphical plot that illustrates the diagnostic ability of a     binary classifier system as its discrimination threshold is varied. The ROC curve plots sensitivity (TPR) versus 1 -         specificity or the false positive rate (FPR).
+
+**• AUC (Area under the curve):** Computing the area under the curve is one way to summarize it in a single value. This          metric is so common that if data scientists say "area under the curve" or "AUC", you can generally assume they mean an       ROC curve unless otherwise specified.
+
+**• Confusion Matrix:** A confusion matrix tabulates each combination of prediction and actual value, it determines the          results by combining the referenced and predicted outputs. It consists of 4 quadrants which for our ML project can be        described as: 
+  
+      •	TP = A subscriber was expected to churn and was correctly classified.
+
+      •	FP = A subscriber was classified as churn but was actually loyal.
+
+      •	FN = A subscriber was classified as loyal but was actually churn.
+
+      •	TN = A subscriber was expected as loyal and was correctly classified.
+
+## 3.2 Model Evaluation:
+
+The four ML models employed for the prediction of Churn will be evaluated on the basis of their performance in predicting the tendency to Churn from a Technical perspective. For this purpose the models are made to run on the 20% unseen data which was split during the Data Preparation stage previously.
+
+The performance measures which are looked at are the models accuracy, sensitifity, specificity, its precision in predicting both Good and Bad cases,MCC, ROC and AUC characteristics.
+
+Also, the confusion matrix is generated for all models to find out the performance measures such as TPR, TNR, FNR etc.
+
+\newpage
+## 3.3 Logistic Regression Model
+
+This section constructs a logistic regression model. The reason logistic regression is used instead of linear regression is that class is a binary variable. Therefore, it is appropriate for a model to predict the probability that the churn of a customer is yes, for example.
+
+The general form of a logistic regression model is
+
+\begin{equation}
+  \log \left(\frac{\hat{\pi}_i}{1-\hat{\pi}_i} \right)=\mathbf{x}_i^T\beta
+\end{equation}
+
+where $\hat{\pi}_i$ is the estimated probability that observation $i$ is positive, $\mathbf{x}_i$ is the $i^{th}$ vector in the design matrix and $\beta$ is the vector of coefficients. In this case, the first element of $\mathbf{x}_i$ is 1 to activate the intercept in $\beta$, the second element of $\mathbf{x}_i$ is the age of observation $i$, and the rest of the elements are 1-0 dummy variables. 
+
+Let's fit the model using the base general linear modeling function in R, glm.
+
+```{r glm_result, echo=FALSE, message = FALSE, warning = FALSE}
+model_glm
+
+```
+
+From the result The Churn is found to be relatively more dependent and having a statistically significant dependence on factors like: tenure, tech-savvy features, contract and the payment methods.
+
+One choice that has to be made when constructing a logistic regression model is what cutoff to use. The cutoff $p$ is such that $\hat{\pi}_i>p\Rightarrow$ observation $i$ is churn as yes. A typical choice is 0.5, however the context of this problem gives reason to consider a value lower than 0.5. Not specifying the customer who want to leave the company is more expensive than incorrectly categorizing a customer don't want to leave.
+
+
+This report aims to find the optimal probalility cutoff which will give maximum accuracy, sensitivity and specificity.
+
+Figure below indicating that a cutoff value `r round(opt_co_glm, 3)` is the optimal choice, where the three curves for accuracy, specificty and sensitivity meet.
+
+```{r glm_cutoff, fig.cap="Accuracy, Sensitivity and Specificity for various cutoffs in Logistic Regression Model", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+####### 2.4.5 Figure 12: Distribution of churn percentage across Contract and PaymentMethod
+##********************************************************
+knitr::include_graphics("save_files/images/figure13.jpeg")
+
+```
+
+We can see below the summary of the confusion matrix when the optimal cutoff of `r round(opt_co_glm, 3)` is used.
+
+```{r glm_cm, echo=FALSE, message = FALSE, warning = FALSE}
+cm_glm
+
+```
+
+The following table summarizes the performance Metrics for Logistic Regression model.
+
+```{r glm_pm, echo=FALSE, message = FALSE, warning = FALSE}
+
+data.frame(measures_glm)  %>% 
+  kable(caption = "Performance Metrics for Logistic Regression Model", align = 'c', booktabs = T,
+        format = "latex", linesep = "") %>%
+  row_spec(1, color =  "#2b5329", bold = T) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),full_width = FALSE, position = "center", latex_options = c("scale_down", "hold_position"), font_size = 13)
+
+```
+
+Also, figure below is shown the ROC curve which plots the Sensitivity against the Specificity and gives us the threshold value for the model and the Area Under the Curve (AUC). 
+
+```{r glm_ROC, fig.cap="ROC Chart for Logistic Regression model", echo=FALSE, message = FALSE, warning = FALSE}
+##********************************************************
+####### Figure 14: ROC Chart for Logistic Regression model
+knitr::include_graphics("save_files/images/figure14.jpeg")
+
+```
+
+\newpage
+## 3.4 k-Nearest Neighbours Model
+
+The second approach is to construct a k-nearest neighbours model. A typical distance metric used in kNN is the euclidean distance, however it is not suitable for this data set. Since the most features are binary it does not make sense for them to be some geographical distance apart. Instead, a common similarity measure used for binary variables is the Jaccard distance, which is used in this report. The neighbr package allows for relatively easy implementation for kNN using the Jaccard distance.
+
+However, before the model is constructed, an optimal K parameter is chosen  (the number of nearest neighbours to include in the majority of the voting process). TRAIN function using 20 bootstrap samples with replacement and 10-fold cross validation is used to select the optimal K parameter. The results are shown in Figure below, highlighting the optimal value of K = `r round(opt_k_knn, 3)`.
+
+```{r Knn_KParameter, fig.cap="Accuracy for each number of neighbors selected predictors", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+####### Figure 15: Accuracy for each number of neighbors selected predictors
+
+knitr::include_graphics("save_files/images/figure15.jpeg")
+
+```
+
+Again, we aims to find the optimal probability cutoffs, which will give maximum accuracy, sensitivity and specificity. Figure below indicating that a cutoff value `r round(opt_co_knn, 2)` is the optimal choice , where the three curves for accuracy, specificity and sensitivity meet.
+
+```{r knn_cutoff, fig.cap="Accuracy, Sensitivity and Specificity for various cutoffs in KNN Model", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+####### Figure 16: Accuracy, Sensitivity and Specificity for various cutoffs in knn model
+
+knitr::include_graphics("save_files/images/figure16.jpeg")
+
+```
+
+We can see below the summary of the confusion matrix when the optimal cutoff of `r round(opt_co_knn, 3)` is used.
+
+```{r knn_cm, echo=FALSE, message = FALSE, warning = FALSE}
+cm_knn
+
+```
+
+The following table summarizes the performance Metrics for Logistic Regression model.
+
+```{r knn_pm, echo=FALSE, message = FALSE, warning = FALSE}
+
+data.frame(measures_knn)  %>% 
+  kable(caption = "Performance Metrics for KNN Model", align = 'c', booktabs = T,
+        format = "latex", linesep = "") %>%
+  row_spec(1, color =  "#2b5329", bold = T) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),full_width = FALSE, position = "center", latex_options = c("scale_down", "hold_position"), font_size = 13)
+
+```
+
+Also, figure below is shown the ROC curve which plots the Sensitivity against the Specificity and gives us the threshold value for the model and the Area Under the Curve (AUC). 
+
+```{r knn_ROC, fig.cap="ROC Chart for KNN model", echo=FALSE, message = FALSE, warning = FALSE}
+##********************************************************
+####### Figure 17: ROC Chart for KNN model
+
+knitr::include_graphics("save_files/images/figure17.jpeg")
+
+```
+
+\newpage
+## 3.5	Decision Tree Model
+
+Decision tree analysis is a classification method that uses tree-like models of decisions and their possible outcomes. This method is one of the most commonly used tools in machine learning analysis. We will use the rpart library in order to use recursive partitioning methods for decision trees. This exploratory method will identify the most important variables related to churn in a hierarchical format.
+Again, before the model is constructed, an optimal complexity parameter is chosen (the factor by which the models performance needs to improve by to warrant another split). TRAIN function using 20 bootstrap samples with replacement and 10-fold cross validation is used to select the optimal complexity parameter. The results are shown in Figure below, highlighting the optimal value of cp = `r round(opt_cp_dt, 3)`.
+
+```{r dt_CPParameter, fig.cap="Accuracy for each number of complexity selected predictors", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+####### Figure 18: Accuracy for each number of complexity selected predictors
+
+knitr::include_graphics("save_files/images/figure18.jpeg")
+
+```
+
+Following cross-validation, the train data set is used to construct a decision tree model using cp = `r round(opt_cp_dt, 3)`, figure below show the plot of decision tree model.
+
+```{r dt_DecisionTree_Plot, fig.cap="Decision Tree Plot", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+####### Figure 19: Decision Tree Plot
+
+knitr::include_graphics("save_files/images/figure19.jpeg")
+
+```
+
+Again, we aims to find the optimal probability cutoffs, which will give maximum accuracy, sensitivity and specificity. Figure below indicating that a cutoff value `r round(opt_co_dt, 3)` is the optimal choice , where the three curves for accuracy, specificity and sensitivity meet.
+
+```{r dt_cutoff, fig.cap="Accuracy, Sensitivity and Specificity for various cutoffs in Decision Tree Model", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+  ####### Figure 20: Accuracy, Sensitivity and Specificity for various cutoffs in Decision Tree Model
+
+knitr::include_graphics("save_files/images/figure20.jpeg")
+
+```
+
+We can see below the summary of the confusion matrix when the optimal cutoff of `r round(opt_co_dt, 3)` is used.
+
+```{r dt_cm, echo=FALSE, message = FALSE, warning = FALSE}
+cm_dt
+
+```
+
+The following table summarizes the performance Metrics for Logistic Regression model.
+
+```{r dt_pm, echo=FALSE, message = FALSE, warning = FALSE}
+
+data.frame(measures_dt)  %>% 
+  kable(caption = "Performance Metrics for Decision Tree Model", align = 'c', booktabs = T,
+        format = "latex", linesep = "") %>%
+  row_spec(1, color =  "#2b5329", bold = T) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),full_width = FALSE, position = "center", latex_options = c("scale_down", "hold_position"), font_size = 13)
+
+```
+
+Also, figure below is shown the ROC curve which plots the Sensitivity against the Specificity and gives us the threshold value for the model and the Area Under the Curve (AUC). 
+
+```{r dt_ROC, fig.cap="ROC Chart for Decision Tree model", echo=FALSE, message = FALSE, warning = FALSE}
+##********************************************************
+####### Figure 21: ROC Chart for Decision Tree model
+
+knitr::include_graphics("save_files/images/figure21.jpeg")
+
+```
+
+\newpage
+## 3.6 The Random Forest Model
+
+The Random Forest model is processing intensive but is known to be better at giving results than a Decision Tree. In this a number of trees are formed by selecting features at random and making trees. Then out of these the best trees are selected and a new tree is made by using the stronger features (or a group of weak features).
+In our modelling we use a simple technique to form a Random Forest using the package called RandomForest.
+
+Again, before the model is constructed, an optimal mtry parameter is chosen (Number of variables available for splitting at each tree node). TRAIN function using 20 bootstrap samples with replacement and 10-fold cross validation is used to select the optimal mtry parameter. The results are shown in Figure below, highlighting the optimal value of mtry = `r round(opt_mtry_rf, 3)`.
+
+```{r rf_mtry_Parameter, fig.cap="Accuracy for each number of randomly selected predictors", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+####### Figure 22: Accuracy for each number of randomly selected predictors
+
+knitr::include_graphics("save_files/images/figure22.jpeg")
+
+```
+
+Following cross-validation, the train data set is used to construct a random forest model using mtry = `r round(opt_mtry_rf, 3)`. Upon plotting the model, we can see that the Out-of-Bag error rate is pretty consistent after about 150 trees and thus we fix the number of trees to the same.
+
+```{r rf_error_Plot, fig.cap="Random Forest  Model with decreasing OOB error as Number of Trees increases", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+####### Figure 23: Random Forest  Model with decreasing OOB error as Number of Trees increases
+
+knitr::include_graphics("save_files/images/figure23.jpeg")
+
+```
+
+The importances are the mean decrease in impurity for each feature across all trees, useing the Random Forest classifier the figure below  show the inportances of variables. We can see that there are some interaction variables that replaced original columns in importance.
+
+```{r dt_importance_variables, fig.cap="The importance Variables Plot", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+####### Figure 24:The importance Variables Plot
+
+knitr::include_graphics("save_files/images/figure24.jpeg")
+
+```
+
+Again, we aims to find the optimal probability cutoffs, which will give maximum accuracy, sensitivity and specificity. Figure below indicating that a cutoff value `r round(opt_co_rf, 3)` is the optimal choice , where the three curves for accuracy, specificity and sensitivity meet.
+
+```{r rf_cutoff, fig.cap="Accuracy, Sensitivity and Specificity for various cutoffs in Random Forest  model", echo=FALSE, message = FALSE, warning = FALSE}
+
+##********************************************************
+####### Figure 25: Accuracy, Sensitivity and Specificity for various cutoffs in Random Forest model
+
+knitr::include_graphics("save_files/images/figure25.jpeg")
+
+```
+
+We can see below the summary of the confusion matrix when the optimal cutoff of `r round(opt_co_rf, 3)` is used.
+
+```{r rf_cm, echo=FALSE, message = FALSE, warning = FALSE}
+cm_rf
+
+```
+
+The following table summarizes the performance Metrics for Random Forest model.
+
+```{r rf_pm, echo=FALSE, message = FALSE, warning = FALSE}
+
+data.frame(measures_rf)  %>% 
+  kable(caption = "Performance Metrics for Random Forest Model", align = 'c', booktabs = T,
+        format = "latex", linesep = "") %>%
+  row_spec(1, color =  "#2b5329", bold = T) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),full_width = FALSE, position = "center", latex_options = c("scale_down", "hold_position"), font_size = 13)
+
+```
+
+Also, figure below is shown the ROC curve which plots the Sensitivity against the Specificity and gives us the threshold value for the model and the Area Under the Curve (AUC). 
+
+```{r rf_ROC, fig.cap="ROC Chart for Random Forest model", echo=FALSE, message = FALSE, warning = FALSE}
+##********************************************************
+####### Figure 26: ROC Chart for Random Fores model
+
+knitr::include_graphics("save_files/images/figure26.jpeg")
+
+```
+
+\newpage
+# 4. Results
+
+In typical data science projects, it is usually to use the case that the ensemble achieves the best results. However, in this report The four ML models (Logistic Regression, k-Nearest Neighbours, Decision Tree and Random Forest) employed for the prediction of Churn evaluated on the basis of their performance in predicting the tendency to Churn from a Technical perspective. 
+
+The performance measures  which used to evaluate the models  are accuracy, sensitifity, specificity, its precision in predicting both Good and Bad cases,MCC, ROC and AUC characteristics. 
+
+The following table summarizes the performance Metrics for The four ML models.
+
+```{r all_pm, echo=FALSE, message = FALSE, warning = FALSE}
+
+summary_pm_all  %>% 
+  kable(caption = " Performance Metrics of the Four Models", align = 'c', booktabs = T,
+        format = "latex", linesep = "") %>%
+  row_spec(1, color =  "black", bold = T) %>%
+  row_spec(2, color =  "#00783e", bold = T) %>%
+  row_spec(3, color =  "blue", bold = T) %>%
+  row_spec(4, color =  "red", bold = T) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),full_width = FALSE, position = "center", latex_options = c("scale_down", "hold_position"), font_size = 13)
+
+```
+
+Also, figure below shown the ROC curve  for The four ML models which plots the Sensitivity against the Specificity and gives us the threshold value for the model and the Area Under the Curve (AUC).
+
+```{r all_ROC, fig.cap="ROC Chart forthe four ML models", echo=FALSE, message = FALSE, warning = FALSE}
+##********************************************************
+####### Figure 27: ROC Chart for the four ML models 
+
+knitr::include_graphics("save_files/images/figure27.jpeg")
+
+```
+
+From above, we can conclude that Logistic Regression model  was highly accurate and had the best performance Metrics. It can predict almost 77.25% accuracy, 77.22% sensitivity, 77.35% specificity,  and has a MCC value of ~ 0.5, which is at par with the Neural Network model.
+
+Also, the ROC curve which plots the Sensitivity against the Specificity gave The Area Under the Curve (AUC) = 77.3% which was high.
+
+
+\newpage
+# 5. Conclusion
+The main goal of this project is to explore survival analysis techniques and their influence on the customer churn rate in order to propose an action plan to improve customer retention using several techniques of Machine Learning.
+
+We analyse the dataset and focuse on the behavior of telecom customers who are more likely to leave the platform, and then we use several techniques of Machine Learning to build a model focused on maximizing the true predictions of customers that will stay with the company.
+
+The machine-learning models which used to predict whether the customer is at risk of churn are: Logistic Regression, k-Nearest Neighbours, Decision Tree and Random Forest.
+
+We use  various technical performance measures to compare the models with each other on the basis of : accuracy, sensitifity, specificity, MCC, ROC, AUC.
+
+The Logistic Regression can be seen as the best model and had The the best performance Metrics and can be used as the model to build strategy guarantee stay the customers.
+
+The telecum data set has  5,986 observations. The models would be much more reliable if it was trained and tested on a larger data set.
+
+The data is only sampled from one telecommunications company. A significant improvement on this report would be if the data set was sampled from various telecom across the world. Thus, the final model would be useful on a global scale.
+
+Many thanks are due to Rafael Irizarry, the course instructor of HarvardX’s Professional Certificate in Data Science, and to the teaching staff who were always at hand to answer questions and queries raised by students.
+
+This edX series has been thoroughly enjoyable and valuable. Irizarry delivered engaging lectures and provided a range of useful coding examples throughout the series.
+
+
+
+\newpage
+# 6. Reference
+[1] Kaggle Machine learning competitions *Telecom users dataset* [link](https://www.kaggle.com/radmirzosimov/telecom-users-dataset)
+
+[2] “Introduction to Data Science - Data Analysis and Prediction Algorithms with R”, Dr. Rafael A. Irizarry [link](https://rafalab.github.io/dsbook/)
+
+[3] "R Markdown: The Definitive Guide", Yihui Xie, J. J. Allaire, Garrett Grolemund, 2019-06-03 [link](https://bookdown.org/yihui/rmarkdown/)
+
+[4] Teknomo, Kardi *Distance for Binary Variables* https://people.revoledu.com/kardi/tutorial/Similarity/BinaryVariables.html (date last accessed - 27/11/2020)
+
+[5] Bolotov, D. (2020) *Package 'neighbr'. Classification, Regression, Clustering with K Nearest Neighbors* 
+
+[6] Therneau, T., Atkinson, B. (2019) *Package 'rpart'. Recursive Partitioning and Regression Trees* 
+
+[7] Kuhn, M., ... (2020) *Package 'caret'. Classification and Regression Training* 
+
+[8] Breiman, L., Cutler, A. (2018) *Package 'randomForest'. Breiman and Cutler's Random Forests for Classification and Regression* 
+
+
+
+

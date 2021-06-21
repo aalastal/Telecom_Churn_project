@@ -20,3 +20,9 @@ This is the final report in PDF format.
 
 
 ## Extra Files
+
+### `save_files`
+This folder contains all necessary files to run `Telecom_Report.Rmd`.
+
+### `telecom_users.csv`
+This is the original data set downloaded from [Kaggle competition](https://www.kaggle.com/radmirzosimov/telecom-users-dataset).
